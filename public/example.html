@@ -3,64 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ejemplo Chat Tiempoespacio</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #00C853;
-            text-align: center;
-        }
-        pre {
-            background: #f8f8f8;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-        }
-        .note {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-    </style>
+    <title>Chat Tiempoespacio - Ejemplo</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Ejemplo de Implementación del Chat Tiempoespacio</h1>
-        
-        <div class="note">
-            Este es un ejemplo de cómo implementar el chat en tu sitio web. 
-            El chat se abrirá automáticamente después de 11 segundos.
-        </div>
-
-        <h2>Código de Implementación:</h2>
-        <pre>
-&lt;script src="chat-widget.min.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-    new TiempoespacioChat({
-        position: 'bottom-right',  // Posición del botón (bottom-right, bottom-left, top-right, top-left)
-        primaryColor: '#00C853',   // Color principal del chat
-        autoOpen: true,           // Abrir automáticamente
-        autoOpenDelay: 11000      // Tiempo de espera en milisegundos (11 segundos)
-    });
-&lt;/script&gt;
-        </pre>
-    </div>
-
-    <!-- Implementación real del chat -->
+    <!-- Implementación del chat -->
     <script src="chat-widget.min.js"></script>
     <script>
         new TiempoespacioChat({
