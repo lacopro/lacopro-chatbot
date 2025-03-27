@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejemplo de Integración del Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #ff69b4;
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Ejemplo de Integración del Chat</h1>
+        <p>Este es un ejemplo de cómo integrar el chat de Tiempoespacio en cualquier sitio web.</p>
+        <p>El chat aparecerá como un botón flotante en la esquina inferior derecha.</p>
+    </div>
+
+    <!-- Integrar el chat -->
+    <script src="/chat-widget.js"></script>
+    <script>
+        // Inicializar el chat con opciones personalizadas
+        new TiempoespacioChat({
+            position: 'bottom-right',
+            primaryColor: '#ff69b4'
+        });
+    </script>
+</body>
+</html> 
