@@ -12,15 +12,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const conversations = {};
 
-const GROQ_API_URL = process.env.GROQ_API_URL;
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const WEBSITE_URL = process.env.WEBSITE_URL;
+const WEBSITE_URL = 'https://lacopro-chatbot.onrender.com';
 
 // Verificar variables de entorno al inicio
 console.log('Checking environment variables:');
-console.log('GROQ_API_URL:', GROQ_API_URL ? 'Set' : 'Not set');
 console.log('GROQ_API_KEY:', GROQ_API_KEY ? 'Set' : 'Not set');
-console.log('WEBSITE_URL:', WEBSITE_URL ? 'Set' : 'Not set');
+console.log('WEBSITE_URL:', WEBSITE_URL);
 
 const systemPrompt = `Eres el asistente virtual de Lacopro.
  Tu personalidad es:
@@ -102,9 +101,6 @@ app.post('/chat', async (req, res) => {
   try {
     if (!GROQ_API_KEY) {
       throw new Error('GROQ_API_KEY is not set');
-    }
-    if (!GROQ_API_URL) {
-      throw new Error('GROQ_API_URL is not set');
     }
 
     const response = await axios.post(GROQ_API_URL, {
