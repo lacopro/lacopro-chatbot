@@ -1,3 +1,6 @@
+// Ignorar advertencia de deprecación de punycode
+process.noDeprecation = true;
+
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
@@ -76,12 +79,10 @@ function generateProductsPrompt() {
   productsToShow.forEach(product => {
     // Limpiar el título del producto y manejar posibles valores nulos
     const title = product.post_title ? product.post_title.replace(/"/g, '').trim() : 'Producto sin nombre';
-    const description = product.post_content 
-      ? product.post_content.substring(0, 100) + '...' 
-      : 'Sin descripción';
     const url = product.product_page_url || `https://www.lacopro.cl/producto/${product.post_name || 'producto'}`;
     
-    productsPrompt += `- ${title}: ${description}\n  URL: ${url}\n\n`;
+    // Formato mejorado con viñetas y enlaces clickeables en markdown
+    productsPrompt += `• ${title} [Ver producto](${url})\n\n`;
   });
   
   // Agregar información sobre productos adicionales si se alcanzó el límite
@@ -89,7 +90,7 @@ function generateProductsPrompt() {
     productsPrompt += `\n... y ${productsData.length - maxProductsInPrompt} productos más disponibles.\n`;
   }
   
-  productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y el enlace clickeable del producto usando este formato: [Nombre del Producto](URL del producto)';
+  productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y comparte los enlaces clickeables usando formato markdown: [Nombre del Producto](URL)';
   
   return productsPrompt;
 }
