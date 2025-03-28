@@ -1,6 +1,6 @@
 # 🤖 Tiempoespacio Chatbot
 
-Un chatbot personalizado para Tiempoespacio.cl usando la API de Groq, con una interfaz web moderna y fácil de integrar.
+Un chatbot personalizado para lacopro.cl usando la API de Groq, con una interfaz web moderna y fácil de integrar.
 
 ![Chatbot Demo](public/demo.gif)
 
