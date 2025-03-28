@@ -88,7 +88,7 @@ Cuando entregues un número de WhatsApp, asegúrate de proporcionarlo con un hip
 
 [Hablar por WhatsApp](https://wa.me/+56947929330)`;
 
-const initialAssistantMessage = '¡Wena! 👋 Soy Guille, el asistente de Tiempoespacio.cl. ¿Cómo te puedo ayudar hoy?';
+const initialAssistantMessage = 'Hola 👋 ¿Cómo te puedo ayudar hoy?';
 
 app.post('/chat', async (req, res) => {
   const { message, sessionId } = req.body;
