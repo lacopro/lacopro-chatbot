@@ -81,8 +81,8 @@ function generateProductsPrompt() {
     const title = product.post_title ? product.post_title.replace(/"/g, '').trim() : 'Producto sin nombre';
     const url = product.product_page_url || `https://www.lacopro.cl/producto/${product.post_name || 'producto'}`;
     
-    // Formato mejorado con viñetas y enlaces clickeables en markdown
-    productsPrompt += `• ${title} [Ver producto](${url})\n\n`;
+    // Formato simplificado con guiones como solicitado
+    productsPrompt += `- ${title} ${url}\n`;
   });
   
   // Agregar información sobre productos adicionales si se alcanzó el límite
@@ -90,7 +90,7 @@ function generateProductsPrompt() {
     productsPrompt += `\n... y ${productsData.length - maxProductsInPrompt} productos más disponibles.\n`;
   }
   
-  productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y comparte los enlaces clickeables usando formato markdown: [Nombre del Producto](URL)';
+  productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y comparte los enlaces completos (no utilices markdown).';
   
   return productsPrompt;
 }
