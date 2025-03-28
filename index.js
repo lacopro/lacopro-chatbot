@@ -18,6 +18,32 @@ const conversations = {};
 // Sistema para almacenar información clave de las conversaciones
 const conversationContext = {};
 
+// Sistema para almacenar memoria a largo plazo (persiste entre reinicios del servidor)
+let longTermMemory = {};
+
+// Intentar cargar memoria a largo plazo desde un archivo si existe
+try {
+  const fs = require('fs');
+  if (fs.existsSync('./memory.json')) {
+    const data = fs.readFileSync('./memory.json', 'utf8');
+    longTermMemory = JSON.parse(data);
+    console.log('Memoria a largo plazo cargada:', Object.keys(longTermMemory).length, 'sesiones');
+  }
+} catch (err) {
+  console.log('No se pudo cargar la memoria a largo plazo:', err.message);
+}
+
+// Guardar memoria a largo plazo periódicamente
+const saveMemoryInterval = setInterval(() => {
+  try {
+    const fs = require('fs');
+    fs.writeFileSync('./memory.json', JSON.stringify(longTermMemory), 'utf8');
+    console.log('Memoria a largo plazo guardada:', Object.keys(longTermMemory).length, 'sesiones');
+  } catch (err) {
+    console.log('No se pudo guardar la memoria a largo plazo:', err.message);
+  }
+}, 5 * 60 * 1000); // Guardar cada 5 minutos
+
 // Sistema de caché para respuestas frecuentes
 const responseCache = {
   cache: {},
@@ -216,11 +242,20 @@ const initialAssistantMessage = 'Hola 👋 ¿Cómo te puedo ayudar hoy?';
 // Esta función extrae información clave del mensaje del usuario
 function extractKeyInfo(message, sessionId) {
   if (!conversationContext[sessionId]) {
-    conversationContext[sessionId] = {
-      mentionedProducts: [],
-      interests: [],
-      lastTimestamp: Date.now()
-    };
+    // Intentar recuperar contexto de memoria a largo plazo
+    if (longTermMemory[sessionId]) {
+      conversationContext[sessionId] = longTermMemory[sessionId];
+      console.log('Recuperado contexto de memoria a largo plazo para sesión:', sessionId);
+    } else {
+      conversationContext[sessionId] = {
+        mentionedProducts: [],
+        interests: [],
+        topics: [],
+        frequentQueries: {},
+        lastTimestamp: Date.now(),
+        sessionStarted: Date.now()
+      };
+    }
   }
   
   const ctx = conversationContext[sessionId];
@@ -228,30 +263,70 @@ function extractKeyInfo(message, sessionId) {
   // Actualizar timestamp
   ctx.lastTimestamp = Date.now();
   
-  // Buscar menciones de tipos de productos
+  // Registrar la consulta para análisis de frecuencia
+  const normalizedMessage = message.toLowerCase().trim();
+  ctx.frequentQueries[normalizedMessage] = (ctx.frequentQueries[normalizedMessage] || 0) + 1;
+  
+  // Buscar menciones de tipos de productos con un listado expandido
   const productTypes = [
     'lima', 'limas', 'tinte', 'tintes', 'pestañas', 'pestaña', 'cejas', 'ceja',
     'uñas', 'uña', 'gel', 'acrílico', 'acrilico', 'kit', 'polvo', 'esmalte',
-    'lampara', 'lámpara', 'diseño', 'refectocil', 'ardell', 'aprés', 'supernail', 'extensiones'
+    'lampara', 'lámpara', 'diseño', 'refectocil', 'ardell', 'aprés', 'apres', 'supernail', 
+    'extensiones', 'pegamento', 'removedor', 'base', 'top coat', 'brillo', 'sticker',
+    'decoración', 'decoracion', 'diseño', 'primer', 'builder', 'tips', 'acrygel'
   ];
+  
+  // Mapeo de categorías de productos
+  const productCategories = {
+    'limas': ['lima', 'limas', 'buffer', 'pulidor', 'pulidora'],
+    'tintes': ['tinte', 'tintes', 'color', 'refectocil', 'coloración'],
+    'pestañas': ['pestaña', 'pestañas', 'extensiones', 'ardell', 'lifting'],
+    'cejas': ['ceja', 'cejas', 'henna', 'laminación', 'depilación'],
+    'uñas': ['uña', 'uñas', 'gel', 'acrílico', 'esmalte', 'manicura']
+  };
   
   const messageLower = message.toLowerCase();
   
-  // Detectar tipos de productos mencionados
+  // Detectar categorías de productos mencionados
+  for (const category in productCategories) {
+    const terms = productCategories[category];
+    const found = terms.some(term => messageLower.includes(term));
+    
+    if (found && !ctx.topics.includes(category)) {
+      ctx.topics.push(category);
+      console.log(`Categoría detectada: ${category}`);
+    }
+  }
+  
+  // Detectar productos específicos mencionados
   productTypes.forEach(type => {
     if (messageLower.includes(type) && !ctx.mentionedProducts.includes(type)) {
       ctx.mentionedProducts.push(type);
     }
   });
   
-  // Detectar intereses
-  if (messageLower.includes('diferencia') || messageLower.includes('comparar')) {
-    ctx.interests.push('comparación');
+  // Detectar intereses con palabras clave expandidas
+  const interestMap = {
+    'comparación': ['diferencia', 'comparar', 'versus', 'vs', 'mejor', 'diferencias', 'comparación', 'cual es mejor'],
+    'precios': ['precio', 'cuesta', 'valor', 'cuanto', 'cuánto', 'económico', 'barato', 'caro', 'promoción', 'oferta'],
+    'uso': ['como', 'cómo', 'usar', 'aplicar', 'técnica', 'pasos', 'procedimiento', 'tutorial'],
+    'durabilidad': ['dura', 'duración', 'tiempo', 'permanente', 'resistente', 'durabilidad'],
+    'disponibilidad': ['disponible', 'stock', 'tienen', 'hay', 'venden', 'comprar', 'adquirir']
+  };
+  
+  // Detectar intereses basados en el mensaje
+  for (const interest in interestMap) {
+    const keywords = interestMap[interest];
+    const found = keywords.some(keyword => messageLower.includes(keyword));
+    
+    if (found && !ctx.interests.includes(interest)) {
+      ctx.interests.push(interest);
+      console.log(`Interés detectado: ${interest}`);
+    }
   }
   
-  if (messageLower.includes('precio') || messageLower.includes('cuesta') || messageLower.includes('valor')) {
-    ctx.interests.push('precios');
-  }
+  // Guardar en memoria a largo plazo
+  longTermMemory[sessionId] = {...ctx};
   
   return ctx;
 }
@@ -263,16 +338,38 @@ function generateContextSummary(sessionId) {
   const ctx = conversationContext[sessionId];
   let summary = '';
   
-  if (ctx.mentionedProducts.length > 0) {
-    summary += `\nProductos mencionados: ${ctx.mentionedProducts.join(', ')}.`;
+  // Añadir información sobre categorías de productos detectadas
+  if (ctx.topics && ctx.topics.length > 0) {
+    summary += `\nCategorías de productos: ${ctx.topics.join(', ')}.`;
   }
   
-  if (ctx.interests.includes('comparación')) {
-    summary += `\nEl usuario está interesado en comparar productos.`;
+  // Añadir productos específicos mencionados
+  if (ctx.mentionedProducts && ctx.mentionedProducts.length > 0) {
+    summary += `\nProductos específicos: ${ctx.mentionedProducts.join(', ')}.`;
   }
   
-  if (ctx.interests.includes('precios')) {
-    summary += `\nEl usuario preguntó por precios.`;
+  // Añadir intereses detectados con contexto adicional
+  if (ctx.interests && ctx.interests.length > 0) {
+    const interestDescriptions = {
+      'comparación': 'interesado en comparar productos',
+      'precios': 'preguntó por precios',
+      'uso': 'pidió información sobre cómo usar productos',
+      'durabilidad': 'preguntó por la duración/durabilidad',
+      'disponibilidad': 'consultó sobre disponibilidad'
+    };
+    
+    const interestDetails = ctx.interests.map(i => interestDescriptions[i] || i).join(', ');
+    summary += `\nUsuario ${interestDetails}.`;
+  }
+  
+  // Añadir consultas frecuentes si existen
+  const frequentQueries = Object.entries(ctx.frequentQueries || {})
+    .filter(([_, count]) => count > 1)
+    .map(([query, _]) => query.substring(0, 30))
+    .slice(0, 2);
+    
+  if (frequentQueries.length > 0) {
+    summary += `\nConsultas frecuentes: "${frequentQueries.join('", "')}"`;
   }
   
   return summary ? `\n[Contexto: ${summary}]` : '';
@@ -287,29 +384,64 @@ app.post('/chat', async (req, res) => {
     return res.status(400).json({ error: 'sessionId and message are required' });
   }
 
-  // Extraer información clave del mensaje del usuario
+  // Extraer información clave del mensaje del usuario y actualizar contexto
   const keyInfo = extractKeyInfo(message, sessionId);
   console.log('Extracted key info:', keyInfo);
 
+  // Inicializar conversación si no existe
   if (!conversations[sessionId]) {
     console.log('Creating new conversation for session:', sessionId);
     conversations[sessionId] = [
       { role: 'system', content: systemPrompt },
       { role: 'assistant', content: initialAssistantMessage }
     ];
+    
+    // Si hay información de memoria a largo plazo, añadirla como contexto inicial
+    if (longTermMemory[sessionId] && 
+        (longTermMemory[sessionId].mentionedProducts.length > 0 || 
+         longTermMemory[sessionId].interests.length > 0)) {
+      console.log('Adding long-term memory context to new conversation');
+      const memoryContext = `Información de conversaciones anteriores: 
+      - Productos que interesaron al usuario: ${longTermMemory[sessionId].mentionedProducts.join(', ')}
+      - Intereses del usuario: ${longTermMemory[sessionId].interests.join(', ')}`;
+      
+      conversations[sessionId].push({
+        role: 'system',
+        content: memoryContext
+      });
+    }
   }
 
-  // Si hay información clave extraída, añadirla como contexto
+  // Generar resumen del contexto actual
   const contextSummary = generateContextSummary(sessionId);
   
-  // Añadir mensaje del usuario, posiblemente con contexto
+  // Añadir mensaje del usuario
   conversations[sessionId].push({ 
     role: 'user', 
     content: message 
   });
 
+  // Analizar si la pregunta actual está relacionada con un interés previo
+  // Por ejemplo, si antes preguntó por limas y ahora pregunta "¿cuál es la diferencia?"
+  if (message.toLowerCase().includes('diferencia') || 
+      message.toLowerCase().includes('mejor') || 
+      message.toLowerCase().includes('comparar')) {
+    
+    const ctx = conversationContext[sessionId];
+    if (ctx.mentionedProducts.length >= 2) {
+      // El usuario probablemente está preguntando por una comparación entre productos mencionados
+      console.log('Detected comparison question about previously mentioned products');
+      
+      // Añadir un mensaje de sistema aclaratorio 
+      conversations[sessionId].push({
+        role: 'system',
+        content: `El usuario está preguntando por la diferencia entre: ${ctx.mentionedProducts.slice(0, 3).join(', ')}. 
+        Proporciona una comparación clara entre estos productos y SIEMPRE incluye los enlaces.`
+      });
+    }
+  }
+
   // Intentar obtener respuesta de la caché primero
-  // Para las consultas de caché, solo usamos el último mensaje del usuario para simplicidad
   const cachedReply = responseCache.get(message);
   if (cachedReply) {
     console.log('Using cached response');
@@ -317,7 +449,7 @@ app.post('/chat', async (req, res) => {
     return res.json({ reply: cachedReply });
   }
 
-  // Aumentamos de 10 a 20 mensajes para mayor contexto
+  // Aumentamos a 20 mensajes para mayor contexto
   const messagesToSend = conversations[sessionId].slice(-20);
   
   // Si hay contexto, añadirlo al último mensaje del sistema
