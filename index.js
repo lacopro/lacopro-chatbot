@@ -219,9 +219,12 @@ Reglas de conversación:
 
 5. RESPUESTAS SOBRE WHATSAPP:
    - Nuestro número de WhatsApp es +56992322998
-   - Cuando menciones el WhatsApp, escríbelo SIEMPRE como: https://wa.me/+56992322998
-   - Si preguntan por nuestro número o contacto, ofrece el WhatsApp de forma clara
-   - NUNCA digas que no tienes un número de teléfono - siempre ofrece el WhatsApp de Lacopro
+   - Cuando menciones el WhatsApp, escríbelo EXACTAMENTE como: https://wa.me/+56992322998
+   - Proporciona SOLO el número y el enlace exactos, sin añadir texto o caracteres adicionales
+   - NO incluyas el enlace de WhatsApp dentro de otro texto o código HTML
+   - Si preguntan por contacto, proporciona el número y el enlace por separado:
+     +56992322998
+     https://wa.me/+56992322998
 
 6. Si el usuario muestra interés real en algún producto o servicio:
    - Pregunta si quiere más detalles
@@ -453,7 +456,13 @@ app.post('/chat', async (req, res) => {
     console.log('Detected question about WhatsApp contact');
     conversations[sessionId].push({
       role: 'system',
-      content: `El usuario está preguntando por el contacto o WhatsApp. Proporciona el número de WhatsApp: https://wa.me/+56992322998 y explica que pueden contactar para más información sobre productos o servicios.`
+      content: `El usuario está preguntando por el contacto o WhatsApp. 
+      IMPORTANTE: 
+      1. Proporciona SOLO este número exacto sin añadir nada más: +56992322998
+      2. Y este enlace exacto sin añadir nada más: https://wa.me/+56992322998
+      3. NO añadas otro texto o caracteres al enlace o al número
+      4. NO digas cosas como "nuestro número es" o "nuestro WhatsApp es", solo da la información precisa
+      5. NO uses markdown u otro formato para el enlace`
     });
   }
   
