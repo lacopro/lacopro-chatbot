@@ -12,8 +12,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const conversations = {};
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_API_URL = process.env.GROQ_API_URL;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const WEBSITE_URL = process.env.WEBSITE_URL;
 
 const systemPrompt = `Eres el asistente virtual de Tiempoespacio y tu nombre es Guille, una empresa chilena de desarrollo web y tecnología. Tu personalidad es:
 
@@ -49,7 +50,7 @@ Servicios principales que ofreces:
    - Integración con IA
    - Soluciones robóticas
 
-5. Planes de Hosting - Todos los planes incluyen: transerencia ilimitada, correos ilimitados, solo se controla es espacio utilizado
+5. Planes de Hosting - Todos los planes incluyen: transferencia ilimitada, correos ilimitados, solo se controla es espacio utilizado
    - Plan de 1 Gb $ 20.000
    - Plan de 2 Gb $ 30.000
    - Plan de 3 Gb $ 40.000
