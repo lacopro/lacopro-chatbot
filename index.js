@@ -210,16 +210,29 @@ Reglas de conversación:
    - Asegúrate de compartir los enlaces tal cual están en el catálogo de productos
    - Sé proactivo ofreciendo productos relacionados a las consultas del usuario
 
-4. Si el usuario muestra interés real en algún producto o servicio:
+4. GUÍA PARA COMPARAR PRODUCTOS:
+   - Cuando el usuario pida comparaciones entre productos, usa un formato de tabla mental
+   - Menciona 3-4 características clave que diferencian los productos (grosor, uso recomendado, durabilidad, etc.)
+   - SIEMPRE incluye el enlace completo de cada producto después de nombrarlo
+   - Concluye con una recomendación clara según el caso de uso (ej: "Para principiantes recomiendo X, para profesionales Y")
+   - Sé específico al hablar de diferencias técnicas (números de grano, materiales, etc.)
+
+5. RESPUESTAS SOBRE WHATSAPP:
+   - Nuestro número de WhatsApp es +56992322998
+   - Cuando menciones el WhatsApp, escríbelo SIEMPRE como: https://wa.me/+56992322998
+   - Si preguntan por nuestro número o contacto, ofrece el WhatsApp de forma clara
+   - NUNCA digas que no tienes un número de teléfono - siempre ofrece el WhatsApp de Lacopro
+
+6. Si el usuario muestra interés real en algún producto o servicio:
    - Pregunta si quiere más detalles
-   - Si confirma, comparte el número de WhatsApp: +56992322998
+   - Si confirma, comparte el número de WhatsApp: https://wa.me/+56992322998
    - Indica que pueden agendar una llamada para más información
 
-5. No des información técnica muy específica, mejor invita a una conversación más detallada
+7. No des información técnica muy específica, mejor invita a una conversación más detallada
 
-6. Si el usuario pregunta por precios, indica que varían según el proyecto y que es mejor conversarlo en persona
+8. Si el usuario pregunta por precios, indica que varían según el proyecto y que es mejor conversarlo en persona
 
-7. No prometas tiempos de entrega específicos sin consultar primero
+9. No prometas tiempos de entrega específicos sin consultar primero
 
 Recuerda: Tu objetivo es ser amigable y cercano, compartir información útil y SIEMPRE ofrecer productos con sus enlaces completos. Esto es fundamental para ayudar al usuario.
 
@@ -423,20 +436,60 @@ app.post('/chat', async (req, res) => {
 
   // Analizar si la pregunta actual está relacionada con un interés previo
   // Por ejemplo, si antes preguntó por limas y ahora pregunta "¿cuál es la diferencia?"
-  if (message.toLowerCase().includes('diferencia') || 
-      message.toLowerCase().includes('mejor') || 
-      message.toLowerCase().includes('comparar')) {
-    
+  const comparisonTerms = [
+    'diferencia', 'mejor', 'comparar', 'vs', 'versus', 'cual es mejor', 
+    'comparación', 'diferencias', 'recomiendas', 'recomendarías', 'entre', 
+    'prefiero', 'cual escoger', 'más recomendable', 'más adecuado', 'ventajas'
+  ];
+  
+  const whatsappTerms = [
+    'whatsapp', 'contacto', 'número', 'telefono', 'teléfono', 'llamar', 
+    'hablar', 'comunicarme', 'mensaje', 'wsp', 'wasap', 'comunicar'
+  ];
+  
+  // Detectar si la pregunta es sobre WhatsApp o contacto
+  const isWhatsappQuestion = whatsappTerms.some(term => message.toLowerCase().includes(term));
+  if (isWhatsappQuestion) {
+    console.log('Detected question about WhatsApp contact');
+    conversations[sessionId].push({
+      role: 'system',
+      content: `El usuario está preguntando por el contacto o WhatsApp. Proporciona el número de WhatsApp: https://wa.me/+56992322998 y explica que pueden contactar para más información sobre productos o servicios.`
+    });
+  }
+  
+  // Detectar si la pregunta es una comparación
+  const isComparisonQuestion = comparisonTerms.some(term => message.toLowerCase().includes(term));
+  if (isComparisonQuestion) {
     const ctx = conversationContext[sessionId];
+    
+    // Si hay al menos 2 productos mencionados
     if (ctx.mentionedProducts.length >= 2) {
-      // El usuario probablemente está preguntando por una comparación entre productos mencionados
       console.log('Detected comparison question about previously mentioned products');
       
-      // Añadir un mensaje de sistema aclaratorio 
+      // Añadir instrucciones de comparación específicas
       conversations[sessionId].push({
         role: 'system',
         content: `El usuario está preguntando por la diferencia entre: ${ctx.mentionedProducts.slice(0, 3).join(', ')}. 
-        Proporciona una comparación clara entre estos productos y SIEMPRE incluye los enlaces.`
+        Proporciona una comparación estructurada entre estos productos siguiendo estas pautas:
+        1. Menciona 3-4 características que los diferencian (grosor, uso recomendado, durabilidad, etc.)
+        2. SIEMPRE incluye el enlace completo de cada producto
+        3. Concluye con una recomendación clara según el caso de uso
+        4. Sé específico con datos técnicos como números de grano, materiales, etc.`
+      });
+    } 
+    // Si hay al menos una categoría de productos mencionada
+    else if (ctx.topics && ctx.topics.length > 0) {
+      console.log('Detected comparison question about product categories');
+      
+      // Añadir instrucciones para comparar categorías
+      conversations[sessionId].push({
+        role: 'system',
+        content: `El usuario está preguntando por comparaciones en la categoría: ${ctx.topics.join(', ')}. 
+        Ofrece comparaciones entre 2-3 productos populares de esta categoría, siguiendo estas pautas:
+        1. Selecciona productos representativos y variados dentro de la categoría
+        2. SIEMPRE incluye el enlace completo de cada producto 
+        3. Explica las diferencias clave entre ellos
+        4. Da recomendaciones según distintos casos de uso o niveles de experiencia`
       });
     }
   }
