@@ -120,4 +120,82 @@ Distribuido bajo la Licencia MIT. Ver `LICENSE` para más información.
 
 Tiempoespacio - [Hablar por WhatsApp](https://wa.me/+56947929330)
 
-[https://github.com/CRPTcuan/tiempoespacio-chatbot](https://github.com/CRPTcuan/tiempoespacio-chatbot) 
+[https://github.com/CRPTcuan/tiempoespacio-chatbot](https://github.com/CRPTcuan/tiempoespacio-chatbot)
+
+# Lacopro Chatbot
+
+Chatbot personalizado para Lacopro usando Groq API, con integración a Supabase para gestión de productos.
+
+## Características
+
+- Integración con Groq API para respuestas inteligentes
+- Base de datos de productos en Supabase
+- Interfaz web para chat en tiempo real
+- Soporte para enlaces clickeables en respuestas
+- Contenedorización con Docker
+
+## Requisitos
+
+- Node.js (v14 o superior)
+- Cuenta en Groq para API key
+- Cuenta en Supabase con base de datos de productos
+- Docker (opcional, para despliegue)
+
+## Estructura de la base de datos
+
+La tabla de productos en Supabase debe tener la siguiente estructura:
+
+| Campo           | Tipo          | Descripción                          |
+|-----------------|---------------|--------------------------------------|
+| id              | int8 (bigint) | ID único (auto-generado)             |
+| post_title      | text          | Nombre del producto                  |
+| post_name       | text          | Slug del producto                    |
+| post_content    | text          | Descripción del producto (Nullable)  |
+| product_page_url| text          | URL del producto                     |
+
+## Configuración
+
+1. Clonar el repositorio
+2. Crear un archivo `.env` basado en `.env.example` con los siguientes valores:
+   ```
+   PORT=3000
+   GROQ_API_KEY=tu_api_key_de_groq
+   WEBSITE_URL=tu_url_del_sitio
+   SUPABASE_URL=tu_url_de_supabase
+   SUPABASE_KEY=tu_clave_de_supabase
+   ```
+3. Instalar dependencias:
+   ```bash
+   npm install
+   ```
+4. Iniciar el servidor:
+   ```bash
+   npm run dev
+   ```
+
+## Despliegue con Docker
+
+1. Construir la imagen:
+   ```bash
+   docker build -t lacopro-chatbot .
+   ```
+2. Ejecutar el contenedor:
+   ```bash
+   docker run -p 3000:3000 --env-file .env lacopro-chatbot
+   ```
+
+## Actualización de productos
+
+Los productos se cargan automáticamente al iniciar el servidor. Para actualizar los productos manualmente, puede hacer una petición POST al endpoint `/update-products`:
+
+```bash
+curl -X POST http://localhost:3000/update-products
+```
+
+## Desarrollo
+
+Para ejecutar en modo desarrollo con recarga automática:
+
+```bash
+npm run dev
+``` 

@@ -3,6 +3,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -14,14 +15,68 @@ const conversations = {};
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const WEBSITE_URL = 'https://lacopro-chatbot.onrender.com';
+const WEBSITE_URL = process.env.WEBSITE_URL || 'https://lacopro-chatbot.onrender.com';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 // Verificar variables de entorno al inicio
 console.log('Checking environment variables:');
 console.log('GROQ_API_KEY:', GROQ_API_KEY ? 'Set' : 'Not set');
 console.log('WEBSITE_URL:', WEBSITE_URL);
+console.log('SUPABASE_URL:', SUPABASE_URL ? 'Set' : 'Not set');
+console.log('SUPABASE_KEY:', SUPABASE_KEY ? 'Set' : 'Not set');
 
-const systemPrompt = `Eres el asistente virtual de Lacopro.
+// Inicializar cliente de Supabase si las variables de entorno están disponibles
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  console.log('Supabase client initialized');
+}
+
+// Función para cargar productos desde Supabase
+let productsData = [];
+async function loadProducts() {
+  if (!supabase) {
+    console.log('Supabase client not initialized, skipping product loading');
+    return;
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('productos')
+      .select('id, post_title, post_name, post_content, product_page_url');
+    
+    if (error) {
+      console.error('Error loading products from Supabase:', error);
+      return;
+    }
+    
+    productsData = data;
+    console.log(`Loaded ${productsData.length} products from Supabase`);
+  } catch (error) {
+    console.error('Failed to load products:', error);
+  }
+}
+
+// Generar texto de productos para el prompt del sistema
+function generateProductsPrompt() {
+  if (!productsData || productsData.length === 0) {
+    return '';
+  }
+  
+  let productsPrompt = '\n\nCatálogo de Productos Disponibles:\n\n';
+  productsData.forEach(product => {
+    const description = product.post_content ? product.post_content.substring(0, 100) + '...' : 'Sin descripción';
+    productsPrompt += `- ${product.post_title}: ${description}\n  URL: ${product.product_page_url}\n\n`;
+  });
+  
+  productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y el enlace clickeable del producto usando este formato: [Nombre del Producto](URL del producto)';
+  
+  return productsPrompt;
+}
+
+// Base del prompt del sistema
+const baseSystemPrompt = `Eres el asistente virtual de Lacopro.
  Tu personalidad es:
 
 - Amigable y cercana
@@ -74,7 +129,16 @@ Cuando entregues un número de WhatsApp, asegúrate de proporcionarlo con un hip
 
 [Hablar por WhatsApp](https://wa.me/+56992322998)`;
 
+// Inicialización
+let systemPrompt = baseSystemPrompt;
 const initialAssistantMessage = 'Hola 👋 ¿Cómo te puedo ayudar hoy?';
+
+// Carga inicial de productos y actualización del prompt
+(async () => {
+  await loadProducts();
+  systemPrompt = baseSystemPrompt + generateProductsPrompt();
+  console.log('System prompt updated with products information');
+})();
 
 app.post('/chat', async (req, res) => {
   const { message, sessionId } = req.body;
@@ -134,6 +198,17 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// Endpoint para actualizar productos manualmente
+app.post('/update-products', async (req, res) => {
+  try {
+    await loadProducts();
+    systemPrompt = baseSystemPrompt + generateProductsPrompt();
+    res.json({ success: true, message: 'Products updated successfully', count: productsData.length });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update products', details: error.message });
+  }
+});
+
 app.get('/keep-alive', (req, res) => {
   res.send('I\'m alive!');
 });
@@ -145,4 +220,4 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});

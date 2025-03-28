@@ -152,7 +152,17 @@
         function appendMessage(message, sender) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
-            messageDiv.textContent = message;
+            
+            // Permitir enlaces clickeables en las respuestas del bot
+            if (sender === 'bot') {
+                // Convertir enlaces de formato markdown [texto](url) a HTML
+                const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                const messageWithLinks = message.replace(markdownLinkRegex, '<a href="$2" target="_blank">$1</a>');
+                messageDiv.innerHTML = messageWithLinks;
+            } else {
+                messageDiv.textContent = message;
+            }
+            
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
