@@ -33,28 +33,31 @@ if (SUPABASE_URL && SUPABASE_KEY) {
   console.log('Supabase client initialized');
 }
 
-// Función para cargar productos desde Supabase
+// Función para cargar productos desde Supabase (solo lectura)
 let productsData = [];
 async function loadProducts() {
   if (!supabase) {
     console.log('Supabase client not initialized, skipping product loading');
-    return;
+    return false;
   }
   
   try {
+    console.log('Cargando productos desde Supabase (solo lectura)...');
     const { data, error } = await supabase
       .from('productos')
       .select('id, post_title, post_name, post_content, product_page_url');
     
     if (error) {
       console.error('Error loading products from Supabase:', error);
-      return;
+      return false;
     }
     
-    productsData = data;
+    productsData = data || [];
     console.log(`Loaded ${productsData.length} products from Supabase`);
+    return productsData.length > 0;
   } catch (error) {
     console.error('Failed to load products:', error);
+    return false;
   }
 }
 
@@ -65,10 +68,26 @@ function generateProductsPrompt() {
   }
   
   let productsPrompt = '\n\nCatálogo de Productos Disponibles:\n\n';
-  productsData.forEach(product => {
-    const description = product.post_content ? product.post_content.substring(0, 100) + '...' : 'Sin descripción';
-    productsPrompt += `- ${product.post_title}: ${description}\n  URL: ${product.product_page_url}\n\n`;
+  
+  // Limitar a máximo 50 productos para evitar que el prompt sea demasiado largo
+  const maxProductsInPrompt = 50;
+  const productsToShow = productsData.slice(0, maxProductsInPrompt);
+  
+  productsToShow.forEach(product => {
+    // Limpiar el título del producto y manejar posibles valores nulos
+    const title = product.post_title ? product.post_title.replace(/"/g, '').trim() : 'Producto sin nombre';
+    const description = product.post_content 
+      ? product.post_content.substring(0, 100) + '...' 
+      : 'Sin descripción';
+    const url = product.product_page_url || `https://www.lacopro.cl/producto/${product.post_name || 'producto'}`;
+    
+    productsPrompt += `- ${title}: ${description}\n  URL: ${url}\n\n`;
   });
+  
+  // Agregar información sobre productos adicionales si se alcanzó el límite
+  if (productsData.length > maxProductsInPrompt) {
+    productsPrompt += `\n... y ${productsData.length - maxProductsInPrompt} productos más disponibles.\n`;
+  }
   
   productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y el enlace clickeable del producto usando este formato: [Nombre del Producto](URL del producto)';
   
@@ -198,14 +217,28 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-// Endpoint para actualizar productos manualmente
+// Endpoint para actualizar productos manualmente (solo recarga desde Supabase)
 app.post('/update-products', async (req, res) => {
   try {
-    await loadProducts();
-    systemPrompt = baseSystemPrompt + generateProductsPrompt();
-    res.json({ success: true, message: 'Products updated successfully', count: productsData.length });
+    const success = await loadProducts();
+    if (success) {
+      systemPrompt = baseSystemPrompt + generateProductsPrompt();
+      res.json({ 
+        success: true, 
+        message: 'Products loaded successfully from Supabase', 
+        count: productsData.length 
+      });
+    } else {
+      res.json({ 
+        success: false, 
+        message: 'Failed to load products from Supabase or no products found' 
+      });
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update products', details: error.message });
+    res.status(500).json({ 
+      error: 'Failed to load products', 
+      details: error.message 
+    });
   }
 });
 
