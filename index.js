@@ -82,7 +82,7 @@ function generateProductsPrompt() {
     const url = product.product_page_url || `https://www.lacopro.cl/producto/${product.post_name || 'producto'}`;
     
     // Formato simplificado con guiones como solicitado
-    productsPrompt += `- ${title} ${url}\n`;
+    productsPrompt += `- ${title}: ${url}\n`;
   });
   
   // Agregar información sobre productos adicionales si se alcanzó el límite
@@ -90,7 +90,7 @@ function generateProductsPrompt() {
     productsPrompt += `\n... y ${productsData.length - maxProductsInPrompt} productos más disponibles.\n`;
   }
   
-  productsPrompt += '\nCuando un usuario pregunte por productos específicos, proporciona información relevante y comparte los enlaces completos (no utilices markdown).';
+  productsPrompt += '\nCuando un usuario pregunte por productos, proporciona la información relevante y comparte las URLs como texto plano simple. NUNCA uses formato markdown ni atributos HTML en las URLs.';
   
   return productsPrompt;
 }
@@ -136,8 +136,8 @@ Reglas de conversación:
    - Pregunta si quiere más detalles
    - Si confirma, comparte el número de WhatsApp: +56992322998
    - Indica que pueden agendar una llamada para más información
-   - Si muestra interés en algún producto, comparte el enlace clickeable del producto usando este formato: [Nombre del Producto](URL del producto)
-   - Si muestra interés en alguna gama de productos, comparte algunas alternativas de productos con su enlace clickeable del producto usando este formato: [Nombre del Producto](URL del producto)
+   - Si muestra interés en algún producto, comparte el enlace del producto como URL simple
+   - Si muestra interés en alguna gama de productos, comparte algunas alternativas de productos con su enlace como URL simple
 
 4. No des información técnica muy específica, mejor invita a una conversación más detallada
 
@@ -147,9 +147,9 @@ Reglas de conversación:
 
 Recuerda: Tu objetivo es ser amigable y cercano, pero siempre manteniendo el foco en los servicios de Lacopro y guiando la conversación hacia una consulta más formal cuando haya interés real.
 
-Cuando entregues un número de WhatsApp, asegúrate de proporcionarlo con un hipervínculo clickable que abra una conversación directamente en WhatsApp.
+Muy importante: Cuando entregues URLs, siempre escríbelas como texto plano simple, nunca uses formato markdown ni incluyas atributos HTML. Por ejemplo, escribe simplemente: https://www.lacopro.cl/producto/lima-recta-negra-80-80/
 
-[Hablar por WhatsApp](https://wa.me/+56992322998)`;
+Para el WhatsApp, usa este formato exacto sin etiquetas HTML ni markdown: https://wa.me/+56992322998`;
 
 // Inicialización
 let systemPrompt = baseSystemPrompt;
