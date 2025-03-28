@@ -16,6 +16,12 @@ const GROQ_API_URL = process.env.GROQ_API_URL;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const WEBSITE_URL = process.env.WEBSITE_URL;
 
+// Verificar variables de entorno al inicio
+console.log('Checking environment variables:');
+console.log('GROQ_API_URL:', GROQ_API_URL ? 'Set' : 'Not set');
+console.log('GROQ_API_KEY:', GROQ_API_KEY ? 'Set' : 'Not set');
+console.log('WEBSITE_URL:', WEBSITE_URL ? 'Set' : 'Not set');
+
 const systemPrompt = `Eres el asistente virtual de Lacopro.
  Tu personalidad es:
 
@@ -73,12 +79,15 @@ const initialAssistantMessage = 'Hola 👋 ¿Cómo te puedo ayudar hoy?';
 
 app.post('/chat', async (req, res) => {
   const { message, sessionId } = req.body;
+  console.log('Received chat request:', { sessionId, message });
 
   if (!sessionId || !message) {
+    console.log('Missing sessionId or message');
     return res.status(400).json({ error: 'sessionId and message are required' });
   }
 
   if (!conversations[sessionId]) {
+    console.log('Creating new conversation for session:', sessionId);
     conversations[sessionId] = [
       { role: 'system', content: systemPrompt },
       { role: 'assistant', content: initialAssistantMessage }
@@ -88,8 +97,16 @@ app.post('/chat', async (req, res) => {
   conversations[sessionId].push({ role: 'user', content: message });
 
   const messagesToSend = conversations[sessionId].slice(-10);
+  console.log('Sending request to Groq API with messages:', messagesToSend);
 
   try {
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY is not set');
+    }
+    if (!GROQ_API_URL) {
+      throw new Error('GROQ_API_URL is not set');
+    }
+
     const response = await axios.post(GROQ_API_URL, {
       model: 'llama3-8b-8192',
       messages: messagesToSend,
@@ -102,13 +119,22 @@ app.post('/chat', async (req, res) => {
     });
 
     const reply = response.data.choices[0].message.content;
+    console.log('Received reply from Groq:', reply);
 
     conversations[sessionId].push({ role: 'assistant', content: reply });
 
     res.json({ reply });
   } catch (error) {
-    console.error('Error calling Groq API:', error);
-    res.status(500).json({ error: 'Failed to get response from AI' });
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
+    res.status(500).json({ 
+      error: 'Failed to get response from AI',
+      details: error.message
+    });
   }
 });
 
