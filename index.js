@@ -16,6 +16,50 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const conversations = {};
 
+// Sistema de caché para respuestas frecuentes
+const responseCache = {
+  cache: {},
+  maxSize: 100, // Máximo número de entradas en caché
+  
+  // Generar una clave única para cada consulta
+  getKey(message, sessionContext = '') {
+    // Simplificar el mensaje para mejorar las coincidencias de caché
+    const normalizedMessage = message.toLowerCase().trim();
+    return `${normalizedMessage}|${sessionContext}`;
+  },
+  
+  // Añadir una respuesta a la caché
+  add(message, reply, sessionContext = '') {
+    const key = this.getKey(message, sessionContext);
+    const timestamp = Date.now();
+    
+    // Si la caché está llena, eliminar la entrada más antigua
+    if (Object.keys(this.cache).length >= this.maxSize) {
+      const oldestKey = Object.keys(this.cache)
+        .sort((a, b) => this.cache[a].timestamp - this.cache[b].timestamp)[0];
+      delete this.cache[oldestKey];
+    }
+    
+    this.cache[key] = { reply, timestamp };
+    console.log(`Added to cache: "${message.substring(0, 30)}..."`);
+  },
+  
+  // Obtener una respuesta de la caché
+  get(message, sessionContext = '') {
+    const key = this.getKey(message, sessionContext);
+    const cacheHit = this.cache[key];
+    
+    if (cacheHit) {
+      console.log(`Cache hit: "${message.substring(0, 30)}..."`);
+      // Actualizar timestamp para algoritmo LRU (Least Recently Used)
+      cacheHit.timestamp = Date.now();
+      return cacheHit.reply;
+    }
+    
+    return null;
+  }
+};
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const WEBSITE_URL = process.env.WEBSITE_URL || 'https://lacopro-chatbot.onrender.com';
@@ -186,6 +230,15 @@ app.post('/chat', async (req, res) => {
 
   conversations[sessionId].push({ role: 'user', content: message });
 
+  // Intentar obtener respuesta de la caché primero
+  // Para las consultas de caché, solo usamos el último mensaje del usuario para simplicidad
+  const cachedReply = responseCache.get(message);
+  if (cachedReply) {
+    console.log('Using cached response');
+    conversations[sessionId].push({ role: 'assistant', content: cachedReply });
+    return res.json({ reply: cachedReply });
+  }
+
   const messagesToSend = conversations[sessionId].slice(-10);
   console.log('Sending request to Groq API with messages:', messagesToSend);
 
@@ -195,7 +248,7 @@ app.post('/chat', async (req, res) => {
     }
 
     const response = await axios.post(GROQ_API_URL, {
-      model: 'llama3-8b-8192',
+      model: 'gemma2-9b-it',  // Cambiado de llama3-8b-8192 a gemma2-9b-it
       messages: messagesToSend,
       temperature: 0.7
     }, {
@@ -208,6 +261,9 @@ app.post('/chat', async (req, res) => {
     const reply = response.data.choices[0].message.content;
     console.log('Received reply from Groq:', reply);
 
+    // Guardar la respuesta en la caché
+    responseCache.add(message, reply);
+
     conversations[sessionId].push({ role: 'assistant', content: reply });
 
     res.json({ reply });
@@ -218,6 +274,36 @@ app.post('/chat', async (req, res) => {
       status: error.response?.status,
       headers: error.response?.headers
     });
+    
+    // Si es un error de límite de tasa (429), intentar devolver una respuesta aproximada de la caché
+    if (error.response?.status === 429) {
+      // Buscar en la caché una respuesta similar para este tipo de consulta
+      // Aquí simplificamos y buscamos palabras clave
+      const keywords = message.toLowerCase().split(/\s+/);
+      let bestMatch = null;
+      
+      for (const key in responseCache.cache) {
+        const matchScore = keywords.filter(word => 
+          key.toLowerCase().includes(word) && word.length > 3
+        ).length;
+        
+        if (matchScore >= 2) { // Si hay al menos 2 palabras clave coincidentes
+          bestMatch = responseCache.cache[key].reply;
+          console.log('Found approximate cache match');
+          break;
+        }
+      }
+      
+      if (bestMatch) {
+        conversations[sessionId].push({ role: 'assistant', content: bestMatch });
+        return res.json({ reply: bestMatch });
+      }
+      
+      // Si no hay coincidencia, devolver un mensaje amigable sobre el límite de tasa
+      const fallbackMsg = "Lo siento, estamos experimentando mucho tráfico en este momento. Por favor, espera unos segundos e intenta nuevamente. ¡Gracias por tu paciencia! 😊";
+      return res.json({ reply: fallbackMsg });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to get response from AI',
       details: error.message
