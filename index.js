@@ -15,6 +15,8 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const conversations = {};
+// Sistema para almacenar información clave de las conversaciones
+const conversationContext = {};
 
 // Sistema de caché para respuestas frecuentes
 const responseCache = {
@@ -211,6 +213,71 @@ const initialAssistantMessage = 'Hola 👋 ¿Cómo te puedo ayudar hoy?';
   console.log('System prompt updated with products information');
 })();
 
+// Esta función extrae información clave del mensaje del usuario
+function extractKeyInfo(message, sessionId) {
+  if (!conversationContext[sessionId]) {
+    conversationContext[sessionId] = {
+      mentionedProducts: [],
+      interests: [],
+      lastTimestamp: Date.now()
+    };
+  }
+  
+  const ctx = conversationContext[sessionId];
+  
+  // Actualizar timestamp
+  ctx.lastTimestamp = Date.now();
+  
+  // Buscar menciones de tipos de productos
+  const productTypes = [
+    'lima', 'limas', 'tinte', 'tintes', 'pestañas', 'pestaña', 'cejas', 'ceja',
+    'uñas', 'uña', 'gel', 'acrílico', 'acrilico', 'kit', 'polvo', 'esmalte',
+    'lampara', 'lámpara', 'diseño', 'refectocil', 'ardell', 'aprés', 'supernail', 'extensiones'
+  ];
+  
+  const messageLower = message.toLowerCase();
+  
+  // Detectar tipos de productos mencionados
+  productTypes.forEach(type => {
+    if (messageLower.includes(type) && !ctx.mentionedProducts.includes(type)) {
+      ctx.mentionedProducts.push(type);
+    }
+  });
+  
+  // Detectar intereses
+  if (messageLower.includes('diferencia') || messageLower.includes('comparar')) {
+    ctx.interests.push('comparación');
+  }
+  
+  if (messageLower.includes('precio') || messageLower.includes('cuesta') || messageLower.includes('valor')) {
+    ctx.interests.push('precios');
+  }
+  
+  return ctx;
+}
+
+// Genera un resumen del contexto para incluir en los mensajes
+function generateContextSummary(sessionId) {
+  if (!conversationContext[sessionId]) return '';
+  
+  const ctx = conversationContext[sessionId];
+  let summary = '';
+  
+  if (ctx.mentionedProducts.length > 0) {
+    summary += `\nProductos mencionados: ${ctx.mentionedProducts.join(', ')}.`;
+  }
+  
+  if (ctx.interests.includes('comparación')) {
+    summary += `\nEl usuario está interesado en comparar productos.`;
+  }
+  
+  if (ctx.interests.includes('precios')) {
+    summary += `\nEl usuario preguntó por precios.`;
+  }
+  
+  return summary ? `\n[Contexto: ${summary}]` : '';
+}
+
 app.post('/chat', async (req, res) => {
   const { message, sessionId } = req.body;
   console.log('Received chat request:', { sessionId, message });
@@ -220,6 +287,10 @@ app.post('/chat', async (req, res) => {
     return res.status(400).json({ error: 'sessionId and message are required' });
   }
 
+  // Extraer información clave del mensaje del usuario
+  const keyInfo = extractKeyInfo(message, sessionId);
+  console.log('Extracted key info:', keyInfo);
+
   if (!conversations[sessionId]) {
     console.log('Creating new conversation for session:', sessionId);
     conversations[sessionId] = [
@@ -228,7 +299,14 @@ app.post('/chat', async (req, res) => {
     ];
   }
 
-  conversations[sessionId].push({ role: 'user', content: message });
+  // Si hay información clave extraída, añadirla como contexto
+  const contextSummary = generateContextSummary(sessionId);
+  
+  // Añadir mensaje del usuario, posiblemente con contexto
+  conversations[sessionId].push({ 
+    role: 'user', 
+    content: message 
+  });
 
   // Intentar obtener respuesta de la caché primero
   // Para las consultas de caché, solo usamos el último mensaje del usuario para simplicidad
@@ -239,7 +317,34 @@ app.post('/chat', async (req, res) => {
     return res.json({ reply: cachedReply });
   }
 
-  const messagesToSend = conversations[sessionId].slice(-10);
+  // Aumentamos de 10 a 20 mensajes para mayor contexto
+  const messagesToSend = conversations[sessionId].slice(-20);
+  
+  // Si hay contexto, añadirlo al último mensaje del sistema
+  if (contextSummary) {
+    // Buscar el último mensaje del sistema y actualizarlo
+    const systemMessageIndex = messagesToSend.findIndex(msg => msg.role === 'system');
+    if (systemMessageIndex >= 0) {
+      const originalSystemPrompt = messagesToSend[systemMessageIndex].content;
+      // Asegurarse de no añadir el contexto múltiples veces
+      if (!originalSystemPrompt.includes('[Contexto:')) {
+        messagesToSend[systemMessageIndex].content = originalSystemPrompt + contextSummary;
+      } else {
+        // Reemplazar el contexto anterior con el nuevo
+        messagesToSend[systemMessageIndex].content = originalSystemPrompt.replace(
+          /\[Contexto:.*?\]/s, 
+          contextSummary
+        );
+      }
+    } else {
+      // Si no hay mensaje del sistema, añadir uno con el contexto
+      messagesToSend.unshift({
+        role: 'system',
+        content: `Recuerda el contexto de la conversación: ${contextSummary}`
+      });
+    }
+  }
+  
   console.log('Sending request to Groq API with messages:', messagesToSend);
 
   try {
@@ -248,7 +353,7 @@ app.post('/chat', async (req, res) => {
     }
 
     const response = await axios.post(GROQ_API_URL, {
-      model: 'gemma2-9b-it',  // Cambiado de llama3-8b-8192 a gemma2-9b-it
+      model: 'gemma2-9b-it',
       messages: messagesToSend,
       temperature: 0.7
     }, {
